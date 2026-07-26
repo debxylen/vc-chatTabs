@@ -1,0 +1,129 @@
+.vc-chat-tabs-container {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    overflow: auto hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    pointer-events: auto !important;
+    -webkit-app-region: no-drag;
+    padding: 3px 0;
+    overscroll-behavior: contain;
+}
+
+.vc-chat-tabs-container::-webkit-scrollbar {
+    display: none;
+}
+
+.vc-chat-tabs-prefix {
+    display: flex;
+    align-items: center;
+}
+
+.vc-chat-tabs-prefix svg {
+    fill: currentcolor !important;
+}
+
+.vc-chat-tabs-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    border-radius: 6px;
+    background: rgb(255 255 255 / 2%);
+    cursor: pointer;
+    max-width: 220px;
+    min-width: 110px;
+    transition: background-color 0.15s ease;
+    user-select: none;
+    pointer-events: auto;
+    position: relative;
+    overflow: hidden;
+}
+
+.vc-chat-tabs-tab:hover {
+    background: rgb(255 255 255 / 5%);
+}
+
+.vc-chat-tabs-active {
+    background: rgb(88 101 242 / 8%);
+}
+
+.vc-chat-tabs-active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #5865F2;
+}
+
+.vc-chat-tabs-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-normal);
+    flex: 1;
+    min-width: 0;
+}
+
+.vc-chat-tabs-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 20px;
+    line-height: 1;
+    transition: all 0.15s ease;
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+
+.vc-chat-tabs-close:hover {
+    background: rgb(244 67 54 / 12%);
+    color: #f44336;
+    opacity: 1;
+    transform: scale(1.08);
+}
+
+.vc-chat-tabs-tab:hover .vc-chat-tabs-close {
+    opacity: 0.7;
+}
+
+.theme-light .vc-chat-tabs-tab {
+    background: rgb(0 0 0 / 4%);
+    color: #2b2d31;
+}
+
+.theme-dark .vc-chat-tabs-tab {
+    background: rgb(0 0 0 / 20%);
+    color: #fff;
+}
+
+.theme-light .vc-chat-tabs-tab:hover {
+    background: rgb(0 0 0 / 6%);
+}
+
+.theme-dark .vc-chat-tabs-tab:hover {
+    background: rgb(0 0 0 / 30%);
+}
+
+.theme-light .vc-chat-tabs-active {
+    background: rgb(255 255 255 / 40%);
+}
+
+.theme-dark .vc-chat-tabs-active {
+    background: rgb(255 255 255 / 8%);
+}

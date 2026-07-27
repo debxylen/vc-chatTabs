@@ -10,7 +10,7 @@ some previews:
 ---
 
 **to be done:**
-- open a new tab only upon mmb, not regular navigation (configurable)
+- open a new tab upon mmb too instead of only ctx menu click when 'open tabs on navigation' is disabled
 - possibly left click context menu for the tabs though i dont yet see a clear use case
 - autoresize tab width like chrome so that they fit in one view and you dont have to shift+scroll when theres many tabs
 

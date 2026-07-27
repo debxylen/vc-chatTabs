@@ -13,7 +13,7 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import { classNameFactory } from "@utils/css";
 import { classes } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
-import { Channel, Guild } from "@vencord/discord-types";
+import { Channel } from "@vencord/discord-types";
 import { Avatar, ChannelRouter, ChannelStore, GuildStore, IconUtils, Menu, NavigationRouter, React, SelectedChannelStore, UserStore, useStateFromStores } from "@webpack/common";
 
 const DATASTORE_KEY = "ChatTabs:SavedTabs";
@@ -35,7 +35,10 @@ interface SavedTabState {
 const globalTabs: Tab[] = [];
 let globalActiveTabId: string | null = null;
 
-let navguardBypasserId: string | null = null;
+function setActive(channelId: string | null) {
+    globalActiveTabId = channelId;
+    notifyListeners();
+}
 
 const tabListeners = new Set<() => void>();
 function notifyListeners() {
@@ -49,7 +52,8 @@ function scheduleSave() {
     if (saveTimeout != null) clearTimeout(saveTimeout);
 
     saveTimeout = setTimeout(() => {
-        DataStore.set(DATASTORE_KEY, { tabs: globalTabs, activeTabId: globalActiveTabId, });
+        saveTimeout = null;
+        DataStore.set(DATASTORE_KEY, { tabs: [...globalTabs], activeTabId: globalActiveTabId, });
     }, 1000);
 }
 
@@ -72,7 +76,7 @@ function useTabState() {
 
 function addTab(channelId: string, title: string, guildId?: string) {
     const existing = globalTabs.find(t => t.channelId === channelId);
-    if (existing) { globalActiveTabId = existing.id; notifyListeners(); return; }
+    if (existing) { setActive(existing.id); return; }
 
     const channel = ChannelStore.getChannel(channelId);
     globalTabs.push({
@@ -116,14 +120,15 @@ function switchToTab(tab: Tab | null) {
 function getChannelIconUrl(channel: Channel) {
     if (channel.isDM()) return IconUtils.getUserAvatarURL(UserStore.getUser(channel.recipients[0]));
     if (channel.isGroupDM()) return IconUtils.getChannelIconURL(channel);
-    return IconUtils.getGuildIconURL(GuildStore.getGuild(channel.guild_id) as Guild);
+    return IconUtils.getGuildIconURL(GuildStore.getGuild(channel.guild_id));
 }
 
-function TabComponent({ tab, isActive }: { tab: Tab; isActive: boolean; }) {
+function TabComponent({ tab, isActive, tabRef }: { tab: Tab; isActive: boolean; tabRef?: React.RefObject<HTMLDivElement | null>; }) {
     const iconUrl = getChannelIconUrl(ChannelStore.getChannel(tab.channelId));
 
     return (
         <div
+            ref={tabRef}
             className={classes(cl("tab"), isActive && cl("active"))}
             onClick={() => switchToTab(tab)}
         >
@@ -160,9 +165,16 @@ function TabComponent({ tab, isActive }: { tab: Tab; isActive: boolean; }) {
     );
 }
 
+let setNavguardBypasser: ((v: string | null) => void) | null = null;
+
 function TabBar() {
     const { tabs, activeTabId } = useTabState();
+
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const activeTabRef = React.useRef<HTMLDivElement>(null);
+
+    const [navguardBypasserId, _setNavguardBypasser] = React.useState<string | null>(null);
+    React.useEffect(() => { setNavguardBypasser = _setNavguardBypasser; return () => { setNavguardBypasser = null; }; }, []);
 
     React.useEffect(() => {
         let resizeObserver: ResizeObserver | null = null;
@@ -207,14 +219,17 @@ function TabBar() {
 
     const currentChannel = useStateFromStores(
         [ChannelStore, SelectedChannelStore],
-        () => ChannelStore.getChannel(SelectedChannelStore.getChannelId()) as Channel | undefined
+        () => ChannelStore.getChannel(SelectedChannelStore.getChannelId())
     );
 
     React.useEffect(() => {
         if (!currentChannel) return;
 
-        if (!settings.store.openTabsOnNavigation && currentChannel.id !== navguardBypasserId) return;
-        navguardBypasserId = null;
+        const existing = globalTabs.find(t => t.channelId === currentChannel.id);
+        if (!settings.store.openTabsOnNavigation && currentChannel.id !== navguardBypasserId)
+            return setActive(existing?.id ?? null);
+
+        setNavguardBypasser?.(null);
 
         let title = currentChannel.name;
         if (!title && currentChannel.isDM()) title = UserStore.getUser(currentChannel.getRecipientId()!)?.username;
@@ -223,22 +238,21 @@ function TabBar() {
 
         requestAnimationFrame(() => {
             const tabsEl = containerRef.current;
-            if (!tabsEl) return;
-
-            const activeTabEl = tabsEl.querySelector(`.${cl("active")}`);
-            if (!activeTabEl) return;
+            const activeTabEl = activeTabRef.current;
+            if (!tabsEl || !activeTabEl) return;
 
             const containerRect = tabsEl.getBoundingClientRect();
             const tabRect = activeTabEl.getBoundingClientRect();
 
-            if (!(tabRect.right > containerRect.right || tabRect.left < containerRect.left)) return;
+            if (tabRect.right <= containerRect.right && tabRect.left >= containerRect.left) return;
 
-            tabsEl.scrollTo({
-                left: tabsEl.scrollLeft + (tabRect.left - containerRect.left) - 10,
-                behavior: "smooth"
+            activeTabEl.scrollIntoView({
+                behavior: "smooth",
+                block: "nearest",
+                inline: "nearest"
             });
         });
-    }, [currentChannel?.id]);
+    }, [currentChannel?.id, navguardBypasserId]);
 
     return (
         <div
@@ -247,7 +261,12 @@ function TabBar() {
             onWheel={e => { e.preventDefault(); containerRef.current!.scrollLeft += e.deltaY; }}
         >
             {tabs.map(tab => (
-                <TabComponent key={tab.id} tab={tab} isActive={tab.id === activeTabId} />
+                <TabComponent
+                    key={tab.id}
+                    tab={tab}
+                    isActive={tab.id === activeTabId}
+                    tabRef={tab.id === activeTabId ? activeTabRef : undefined}
+                />
             ))}
         </div>
     );
@@ -262,7 +281,7 @@ const patchChannelContextMenu: NavContextMenuPatchCallback = (children, props) =
             id="vc-chat-tabs-open-in-new-tab"
             label="Open in New Tab"
             action={() => {
-                navguardBypasserId = channel.id;
+                setNavguardBypasser?.(channel.id);
                 ChannelRouter.transitionToChannel(channel.id);
             }}
         />
@@ -327,6 +346,17 @@ export default definePlugin({
 
         const activeTab = globalTabs.find(t => t.id === saved.activeTabId) ?? null;
         switchToTab(activeTab);
+    },
+
+    stop() {
+        tabListeners.clear();
+        setNavguardBypasser = null;
+
+        if (saveTimeout != null) clearTimeout(saveTimeout);
+        saveTimeout = null;
+
+        globalTabs.length = 0;
+        globalActiveTabId = null;
     },
 
     renderTitleTabs() {
